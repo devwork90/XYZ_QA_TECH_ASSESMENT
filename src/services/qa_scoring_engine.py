@@ -8,11 +8,11 @@ rule-based checks and ML-powered analysis.
 Note: This is a simplified version for assessment purposes.
 """
 
+import re
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from enum import Enum
-import re
+from typing import List, Dict, Any, Optional, Tuple
 
 
 class ScoreCategory(Enum):

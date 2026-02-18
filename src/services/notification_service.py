@@ -8,13 +8,12 @@ various channels (email, webhook, in-app).
 Note: This is a simplified version for assessment purposes.
 """
 
+import hashlib
+import json
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime, timedelta
 from enum import Enum
-import json
-import re
-import hashlib
+from typing import List, Dict, Any, Optional, Callable
 
 
 class NotificationChannel(Enum):

@@ -8,11 +8,15 @@ Your task is to significantly expand upon these tests as outlined in the
 assessment instructions.
 """
 
-import pytest
 import json
 import os
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
+from datetime import datetime
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+from websockets.sync import router
 
 # Imports from the src modules (path configured in conftest.py)
 from src.api.conversation_api import (
@@ -25,7 +29,6 @@ from src.api.conversation_api import (
     data_store,
     validate_api_key,
 )
-
 from src.services.notification_service import (
     NotificationService,
     NotificationRule,
@@ -34,18 +37,21 @@ from src.services.notification_service import (
     TriggerOperator,
     RuleBuilder,
 )
-
 from src.services.qa_scoring_engine import (
     QAScoringEngine,
     ScoreCategory,
     ComplianceFlag,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from src.main import app
+    return TestClient(app)
 
 @pytest.fixture
 def sample_speakers():
@@ -91,6 +97,45 @@ def valid_conversation_data(sample_speakers, sample_utterances):
         language="en",
     )
 
+@pytest.fixture
+def valid_speakers():
+    return [
+        Speaker(id="spk_1", role="agent", name="Agent Smith"),
+        Speaker(id="spk_2", role="customer", name="John Doe"),
+    ]
+
+@pytest.fixture
+def valid_utterances():
+    return [
+        Utterance(
+            speaker_id="spk_1",
+            text="Hello",
+            start_time=0.0,
+            end_time=1.0,
+            confidence=0.95,
+        ),
+        Utterance(
+            speaker_id="spk_2",
+            text="Hi",
+            start_time=1.1,
+            end_time=2.0,
+            confidence=0.90,
+        ),
+    ]
+
+
+@pytest.fixture
+def base_conversation_payload(valid_speakers, valid_utterances):
+    return dict(
+        external_id="ext_123",
+        conversation_type=ConversationType.CALL,
+        speakers=valid_speakers,
+        utterances=valid_utterances,
+        metadata={},
+        recorded_at=datetime.utcnow(),
+        duration_seconds=120.0,
+        language="en",
+    )
 
 @pytest.fixture
 def notification_service():
@@ -168,6 +213,106 @@ class TestConversationValidation:
     # - Test boundary values for duration_seconds
     # - Test language code format
 
+    # ============================================================
+    # TODO Tests Completed
+    # ============================================================
+
+    # ------------------------------------------------------------
+    # 1️⃣ Test utterance end_time > start_time validation
+    # ------------------------------------------------------------
+
+    def test_utterance_end_time_less_than_start_time(self):
+        with pytest.raises(ValidationError) as exc_info:
+            Utterance(
+                speaker_id="spk_1",
+                text="Invalid timing",
+                start_time=5.0,
+                end_time=4.0,  # invalid
+            )
+
+        assert "end_time must be greater than or equal to start_time" in str(exc_info.value)
+
+    # ------------------------------------------------------------
+    # 2️⃣ Test speaker_id references in utterances
+    # ------------------------------------------------------------
+
+    def test_invalid_speaker_reference(valid_speakers, base_conversation_payload):
+        invalid_utterances = [
+            Utterance(
+                speaker_id="INVALID_SPK",  # not in speakers
+                text="Hello",
+                start_time=0.0,
+                end_time=1.0,
+            )
+        ]
+
+        payload = base_conversation_payload.copy()
+        payload["utterances"] = invalid_utterances
+
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationCreate(**payload)
+
+        assert "Invalid speaker_id" in str(exc_info.value)
+
+    # ------------------------------------------------------------
+    # 3️⃣ Test boundary values for duration_seconds
+    #     Field(..., gt=0, le=86400)
+    # ------------------------------------------------------------
+
+    def test_duration_seconds_zero_invalid(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["duration_seconds"] = 0  # invalid (gt=0)
+
+        with pytest.raises(ValidationError):
+            ConversationCreate(**payload)
+
+    def test_duration_seconds_max_boundary_valid(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["duration_seconds"] = 86400  # valid max boundary
+
+        model = ConversationCreate(**payload)
+        assert model.duration_seconds == 86400
+
+    def test_duration_seconds_above_max_invalid(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["duration_seconds"] = 86401  # invalid (> 86400)
+
+        with pytest.raises(ValidationError):
+            ConversationCreate(**payload)
+
+    # ------------------------------------------------------------
+    # 4️⃣ Test language code format
+    #     pattern="^[a-z]{2}$"
+    # ------------------------------------------------------------
+
+    def test_valid_language_code(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["language"] = "fr"
+
+        model = ConversationCreate(**payload)
+        assert model.language == "fr"
+
+    def test_invalid_language_uppercase(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["language"] = "EN"  # invalid (must be lowercase)
+
+        with pytest.raises(ValidationError):
+            ConversationCreate(**payload)
+
+    def test_invalid_language_three_letters(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["language"] = "eng"  # invalid (3 letters)
+
+        with pytest.raises(ValidationError):
+            ConversationCreate(**payload)
+
+    def test_invalid_language_numeric(base_conversation_payload):
+        payload = base_conversation_payload.copy()
+        payload["language"] = "e1"  # invalid (must be letters only)
+
+        with pytest.raises(ValidationError):
+            ConversationCreate(**payload)
+
 
 class TestUtteranceValidation:
     """Tests for utterance-level validation"""
@@ -196,6 +341,114 @@ class TestUtteranceValidation:
             )
 
     # TODO: Add more utterance validation tests
+    def test_end_time_negative_fails(self):
+        with pytest.raises(ValidationError):
+            Utterance(
+                speaker_id="agent_1",
+                text="Test",
+                start_time=0.0,
+                end_time=-5.0,  # Invalid
+                confidence=0.9,
+            )
+
+    # ------------------------------------------------------------
+    # Text validation
+    # ------------------------------------------------------------
+
+    def test_empty_text_fails(self):
+        with pytest.raises(ValidationError):
+            Utterance(
+                speaker_id="agent_1",
+                text="",  # min_length=1
+                start_time=0.0,
+                end_time=1.0,
+            )
+
+    def test_text_too_long_fails(self):
+        long_text = "a" * 10001  # max_length=10000
+
+        with pytest.raises(ValidationError):
+            Utterance(
+                speaker_id="agent_1",
+                text=long_text,
+                start_time=0.0,
+                end_time=1.0,
+            )
+
+    # ------------------------------------------------------------
+    # Confidence validation
+    # ------------------------------------------------------------
+
+    def test_confidence_below_zero_fails(self):
+        with pytest.raises(ValidationError):
+            Utterance(
+                speaker_id="agent_1",
+                text="Test",
+                start_time=0.0,
+                end_time=1.0,
+                confidence=-0.1,  # Invalid
+            )
+
+    def test_confidence_above_one_fails(self):
+        with pytest.raises(ValidationError):
+            Utterance(
+                speaker_id="agent_1",
+                text="Test",
+                start_time=0.0,
+                end_time=1.0,
+                confidence=1.5,  # Invalid
+            )
+
+    def test_confidence_zero_valid(self):
+        utt = Utterance(
+            speaker_id="agent_1",
+            text="Test",
+            start_time=0.0,
+            end_time=1.0,
+            confidence=0.0,  # Boundary valid
+        )
+        assert utt.confidence == 0.0
+
+    def test_confidence_one_valid(self):
+        utt = Utterance(
+            speaker_id="agent_1",
+            text="Test",
+            start_time=0.0,
+            end_time=1.0,
+            confidence=1.0,  # Boundary valid
+        )
+        assert utt.confidence == 1.0
+
+    # ------------------------------------------------------------
+    # Boundary timing case
+    # ------------------------------------------------------------
+
+    def test_start_time_equals_end_time_valid(self):
+        """
+        end_time == start_time is allowed by validator
+        (>= comparison)
+        """
+        utt = Utterance(
+            speaker_id="agent_1",
+            text="Instant utterance",
+            start_time=5.0,
+            end_time=5.0,
+            confidence=0.8,
+        )
+
+        assert utt.end_time == utt.start_time
+
+    # ------------------------------------------------------------
+    # Required field validation
+    # ------------------------------------------------------------
+
+    def test_missing_speaker_id_fails(self):
+        with pytest.raises(ValidationError):
+            Utterance(
+                text="Test",
+                start_time=0.0,
+                end_time=1.0,
+            )
 
 
 # =============================================================================
@@ -238,7 +491,143 @@ class TestNotificationRuleCreation:
     # - Test invalid metrics
     # - Test missing channels
     # - Test boundary values for time windows
+# ------------------------------------------------------------
+# 1️ Invalid Metrics
+# ------------------------------------------------------------
 
+def test_invalid_metric_name_fails(notification_service):
+    """Using unsupported metric should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Low Score Alert")
+            .when_metric("invalid_metric")  # invalid
+            .is_less_than(50.0)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+
+def test_missing_metric_operator_fails(notification_service):
+    """Metric defined but operator not set should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Incomplete Rule")
+            .when_metric("qa_score")
+            # Missing .is_less_than / is_greater_than
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+
+# ------------------------------------------------------------
+# 2️ Missing Notification Channels
+# ------------------------------------------------------------
+
+def test_missing_notification_channels_fails(notification_service):
+    """Rule without notify_via should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("No Channels Rule")
+            .when_metric("qa_score")
+            .is_less_than(50.0)
+            # Missing notify_via
+            .build()
+        )
+
+
+def test_empty_notification_channels_fails(notification_service):
+    """Empty notification channel list should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Empty Channels Rule")
+            .when_metric("qa_score")
+            .is_less_than(50.0)
+            .notify_via([])  # Invalid
+            .build()
+        )
+
+
+# ------------------------------------------------------------
+# 3️ Boundary Values for Time Windows
+# ------------------------------------------------------------
+
+def test_zero_time_window_fails(notification_service):
+    """Zero minute time window should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Zero Window Rule")
+            .when_metric("qa_score")
+            .is_less_than(50.0)
+            .within_minutes(0)  # boundary invalid
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+
+def test_negative_time_window_fails(notification_service):
+    """Negative time window should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Negative Window Rule")
+            .when_metric("qa_score")
+            .is_less_than(50.0)
+            .within_minutes(-10)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+
+def test_valid_time_window_boundary(notification_service):
+    """Smallest valid time window should succeed"""
+    rule = (
+        RuleBuilder("cust_001")
+        .with_name("Valid Boundary Window")
+        .when_metric("qa_score")
+        .is_less_than(50.0)
+        .within_minutes(1)  # boundary valid
+        .notify_via([NotificationChannel.EMAIL])
+        .build()
+    )
+
+    assert rule is not None
+    assert rule.time_window_minutes == 1
+
+
+# ------------------------------------------------------------
+# 4️ Metric Boundary Values
+# ------------------------------------------------------------
+
+def test_metric_boundary_zero_valid(notification_service):
+    """Metric value at 0 boundary should be valid"""
+    rule = (
+        RuleBuilder("cust_001")
+        .with_name("Zero Threshold")
+        .when_metric("qa_score")
+        .is_less_than(0.0)
+        .notify_via([NotificationChannel.EMAIL])
+        .build()
+    )
+
+    assert rule.threshold == 0.0
+
+
+def test_metric_above_max_boundary_fails(notification_service):
+    """Metric above allowed range (e.g. qa_score > 100) should fail"""
+    with pytest.raises(ValueError):
+        (
+            RuleBuilder("cust_001")
+            .with_name("Too High Threshold")
+            .when_metric("qa_score")
+            .is_greater_than(150.0)  # invalid for qa_score
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
 
 class TestNotificationRuleEvaluation:
     """Tests for notification rule evaluation"""
@@ -318,6 +707,40 @@ class TestQAScoring:
     # - Test category score breakdowns
     # - Test edge cases (empty conversations, etc.)
     # - Test custom rule addition
+    def test_missing_greeting_reduces_greeting_score(self, qa_engine):
+        """Conversation without greeting should score low in Greeting category"""
+
+        speakers = [
+            {"id": "agent_1", "role": "agent"},
+            {"id": "customer_1", "role": "customer"},
+        ]
+
+        utterances = [
+            {
+                "speaker_id": "agent_1",
+                "text": "What do you want?",
+                "start_time": 0,
+                "end_time": 2,
+            },
+            {
+                "speaker_id": "customer_1",
+                "text": "I need help with my order.",
+                "start_time": 3,
+                "end_time": 6,
+            },
+        ]
+
+        result = qa_engine.score_conversation(
+            conversation_id="no_greeting_test",
+            speakers=speakers,
+            utterances=utterances,
+            metadata=None,
+        )
+
+        greeting_score = result.category_scores.get(ScoreCategory.GREETING)
+
+        assert greeting_score is not None
+        assert greeting_score < 50.0
 
 
 # =============================================================================
@@ -350,6 +773,101 @@ class TestAPIAuthentication:
     # - Test suspended key handling
     # - Test admin vs customer key access
     # - Test tenant isolation
+
+    # ============================================================
+    # 1 Suspended Key Handling
+    # ============================================================
+    def test_suspended_key_rejected(self, client):
+        """Suspended API key should return 403"""
+        response = client.get(
+            "/api/v1/conversations/",
+            headers={"X-API-Key": "CUS_suspended_key"},
+        )
+
+        assert response.status_code == 403
+        assert "not active" in response.json()["detail"]
+
+    # ============================================================
+    # 2️ Admin vs Customer Key Access
+    # ============================================================
+
+    def test_admin_cannot_access_customer_endpoint(self, client):
+        """
+        Admin key should not be allowed to access customer-only endpoints
+        """
+        response = client.get(
+            "/api/v1/conversations/",
+            headers={"X-API-Key": "ADM_admin_key_456"},
+        )
+
+        assert response.status_code == 403
+        assert "requires a customer API key" in response.json()["detail"]
+
+    def test_customer_cannot_access_admin_endpoint(self, client):
+        """
+        Customer key should not access admin-only endpoints
+        """
+        response = client.get(
+            "/api/v1/conversations/admin/stats",
+            headers={"X-API-Key": "CUS_test_customer_123"},
+        )
+
+        assert response.status_code == 403
+        assert "requires an admin API key" in response.json()["detail"]
+
+    def test_admin_can_access_admin_endpoint(self, client):
+        """Admin key should access admin stats"""
+        response = client.get(
+            "/api/v1/conversations/admin/stats",
+            headers={"X-API-Key": "ADM_admin_key_456"},
+        )
+
+        assert response.status_code == 200
+        assert "total_conversations" in response.json()
+
+    # ============================================================
+    # 3️⃣ Tenant Isolation
+    # ============================================================
+
+    def test_customer_cannot_access_other_customer_conversation(self, client):
+        """
+        Customer should not access another tenant's conversation
+        """
+        # conv_001 belongs to cust_001
+        response = client.get(
+            "/api/v1/conversations/conv_001",
+            headers={"X-API-Key": "CUS_premium_customer"},  # cust_002
+        )
+
+        # Should return 404 (not 403) to avoid information leakage
+        assert response.status_code == 404
+
+    def test_customer_can_access_own_conversation(self, client):
+        """Customer should access their own conversation"""
+        response = client.get(
+            "/api/v1/conversations/conv_001",
+            headers={"X-API-Key": "CUS_test_customer_123"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == "conv_001"
+
+    def test_list_conversations_is_tenant_isolated(self, client):
+        """
+        Customer listing should only return their conversations
+        """
+        response = client.get(
+            "/api/v1/conversations/",
+            headers={"X-API-Key": "CUS_test_customer_123"},
+        )
+
+        assert response.status_code == 200
+
+        results = response.json()
+
+        # All returned conversations must belong to cust_001
+        for conv in results:
+            assert conv["customer_id"] == "cust_001"
 
 #=============================================================================
 #SECURITY TESTS (BUG DETECTION)

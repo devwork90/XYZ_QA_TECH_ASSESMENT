@@ -8,14 +8,14 @@ Note: This is a simplified version for assessment purposes. The actual implement
 connects to Azure SQL shards, Elasticsearch, and Redis in production.
 """
 
+import asyncio
+import hashlib
+from datetime import datetime
+from enum import Enum
+from typing import Optional, List, Dict, Any
+
 from fastapi import APIRouter, HTTPException, Header, Depends, Query, BackgroundTasks
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
-from enum import Enum
-import hashlib
-import re
-import asyncio
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
