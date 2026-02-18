@@ -1,0 +1,338 @@
+{
+  "sample_conversations": [
+    {
+      "id": "test_conv_001",
+      "external_id": "ext_test_001",
+      "conversation_type": "call",
+      "speakers": [
+        {"id": "agent_1", "role": "agent", "name": "Sarah Wilson"},
+        {"id": "customer_1", "role": "customer", "name": "Michael Brown"}
+      ],
+      "utterances": [
+        {
+          "speaker_id": "agent_1",
+          "text": "Thank you for calling DataStream Support, my name is Sarah. How may I assist you today?",
+          "start_time": 0.0,
+          "end_time": 4.5,
+          "confidence": 0.97
+        },
+        {
+          "speaker_id": "customer_1",
+          "text": "Hi Sarah, I'm having trouble logging into my account. It keeps saying invalid credentials.",
+          "start_time": 4.8,
+          "end_time": 9.2,
+          "confidence": 0.94
+        },
+        {
+          "speaker_id": "agent_1",
+          "text": "I understand how frustrating that can be. Let me help you with that. Can I have your email address to look up your account?",
+          "start_time": 9.5,
+          "end_time": 15.0,
+          "confidence": 0.96
+        },
+        {
+          "speaker_id": "customer_1",
+          "text": "Sure, it's michael.brown@email.com",
+          "start_time": 15.3,
+          "end_time": 18.0,
+          "confidence": 0.98
+        },
+        {
+          "speaker_id": "agent_1",
+          "text": "Thank you. I can see your account here. It looks like your password needs to be reset. I'll send a password reset link to your email. You should receive it within a few minutes.",
+          "start_time": 18.5,
+          "end_time": 27.0,
+          "confidence": 0.95
+        },
+        {
+          "speaker_id": "customer_1",
+          "text": "That would be great, thank you.",
+          "start_time": 27.3,
+          "end_time": 29.5,
+          "confidence": 0.96
+        },
+        {
+          "speaker_id": "agent_1",
+          "text": "Perfect, I've sent that now. To summarize, I've sent you a password reset link. Once you receive it, click the link to create a new password. Is there anything else I can help you with today?",
+          "start_time": 29.8,
+          "end_time": 40.0,
+          "confidence": 0.94
+        },
+        {
+          "speaker_id": "customer_1",
+          "text": "No, that's all. Thanks for your help!",
+          "start_time": 40.3,
+          "end_time": 43.0,
+          "confidence": 0.97
+        },
+        {
+          "speaker_id": "agent_1",
+          "text": "You're welcome! Thank you for calling DataStream. Have a great day!",
+          "start_time": 43.3,
+          "end_time": 47.0,
+          "confidence": 0.98
+        }
+      ],
+      "metadata": {
+        "source": "zendesk",
+        "ticket_id": "TKT-78901"
+      },
+      "recorded_at": "2024-01-20T10:30:00Z",
+      "duration_seconds": 47.0,
+      "language": "en"
+    },
+    {
+      "id": "test_conv_002",
+      "external_id": "ext_test_002",
+      "conversation_type": "call",
+      "speakers": [
+        {"id": "agent_2", "role": "agent", "name": "Tom Johnson"},
+        {"id": "customer_2", "role": "customer", "name": "Lisa Smith"}
+      ],
+      "utterances": [
+        {
+          "speaker_id": "agent_2",
+          "text": "Hello?",
+          "start_time": 0.0,
+          "end_time": 0.8,
+          "confidence": 0.99
+        },
+        {
+          "speaker_id": "customer_2",
+          "text": "Hi, I need to cancel my subscription.",
+          "start_time": 1.0,
+          "end_time": 3.5,
+          "confidence": 0.96
+        },
+        {
+          "speaker_id": "agent_2",
+          "text": "Why would you want to do that? It's stupid to cancel when you have such a good deal.",
+          "start_time": 3.8,
+          "end_time": 8.0,
+          "confidence": 0.94
+        },
+        {
+          "speaker_id": "customer_2",
+          "text": "Excuse me? I don't appreciate being spoken to that way.",
+          "start_time": 8.2,
+          "end_time": 11.5,
+          "confidence": 0.95
+        },
+        {
+          "speaker_id": "agent_2",
+          "text": "Fine, whatever. I guarantee you'll regret this decision. Give me your account number.",
+          "start_time": 11.8,
+          "end_time": 16.0,
+          "confidence": 0.93
+        },
+        {
+          "speaker_id": "customer_2",
+          "text": "It's 1234567890",
+          "start_time": 16.3,
+          "end_time": 19.0,
+          "confidence": 0.97
+        },
+        {
+          "speaker_id": "agent_2",
+          "text": "Your credit card ending in 4532 will stop being charged. Your social is 123-45-6789 right?",
+          "start_time": 19.5,
+          "end_time": 25.0,
+          "confidence": 0.91
+        },
+        {
+          "speaker_id": "customer_2",
+          "text": "Why do you need my social security number to cancel?",
+          "start_time": 25.3,
+          "end_time": 28.5,
+          "confidence": 0.96
+        },
+        {
+          "speaker_id": "agent_2",
+          "text": "Never mind. Cancelled. Bye.",
+          "start_time": 28.8,
+          "end_time": 31.0,
+          "confidence": 0.98
+        }
+      ],
+      "metadata": {
+        "source": "internal",
+        "reason": "cancellation"
+      },
+      "recorded_at": "2024-01-20T14:15:00Z",
+      "duration_seconds": 31.0,
+      "language": "en"
+    },
+    {
+      "id": "test_conv_003",
+      "external_id": "ext_test_003",
+      "conversation_type": "chat",
+      "speakers": [
+        {"id": "agent_3", "role": "agent", "name": "Emily Chen"},
+        {"id": "customer_3", "role": "customer", "name": null}
+      ],
+      "utterances": [
+        {
+          "speaker_id": "agent_3",
+          "text": "Hello! Welcome to DataStream chat support. How can I help you today?",
+          "start_time": 0.0,
+          "end_time": 2.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "customer_3",
+          "text": "I want to upgrade my plan",
+          "start_time": 5.0,
+          "end_time": 6.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "agent_3",
+          "text": "I'd be happy to help you with that! Let me pull up your account. Can you confirm your email address?",
+          "start_time": 8.0,
+          "end_time": 10.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "customer_3",
+          "text": "customer3@test.com",
+          "start_time": 15.0,
+          "end_time": 16.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "agent_3",
+          "text": "Thank you. I can see you're currently on our Basic plan. We have two upgrade options: Professional at $49/month with advanced analytics, or Enterprise at $99/month with full API access. Which would better suit your needs?",
+          "start_time": 20.0,
+          "end_time": 28.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "customer_3",
+          "text": "Professional sounds good",
+          "start_time": 35.0,
+          "end_time": 36.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "agent_3",
+          "text": "Excellent choice! I've upgraded your account to Professional. Your new billing will start on your next billing date. You'll receive a confirmation email shortly. Is there anything else I can assist you with?",
+          "start_time": 40.0,
+          "end_time": 48.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "customer_3",
+          "text": "No that's all thanks",
+          "start_time": 52.0,
+          "end_time": 53.0,
+          "confidence": 1.0
+        },
+        {
+          "speaker_id": "agent_3",
+          "text": "You're welcome! Thank you for choosing DataStream. Have a wonderful day!",
+          "start_time": 55.0,
+          "end_time": 58.0,
+          "confidence": 1.0
+        }
+      ],
+      "metadata": {
+        "channel": "web_chat",
+        "page_url": "/pricing"
+      },
+      "recorded_at": "2024-01-21T09:00:00Z",
+      "duration_seconds": 58.0,
+      "language": "en"
+    }
+  ],
+  "sample_analysis_results": [
+    {
+      "conversation_id": "test_conv_001",
+      "overall_sentiment": "positive",
+      "sentiment_confidence": 0.89,
+      "topics": ["account_access", "password_reset", "authentication"],
+      "key_phrases": ["trouble logging in", "invalid credentials", "password reset"],
+      "qa_score": 92.5,
+      "compliance_flags": [],
+      "processing_time_ms": 1450
+    },
+    {
+      "conversation_id": "test_conv_002",
+      "overall_sentiment": "negative",
+      "sentiment_confidence": 0.95,
+      "topics": ["cancellation", "customer_service"],
+      "key_phrases": ["cancel subscription", "regret decision"],
+      "qa_score": 28.0,
+      "compliance_flags": ["inappropriate_language", "unauthorized_promise", "pii_exposure"],
+      "processing_time_ms": 1820
+    },
+    {
+      "conversation_id": "test_conv_003",
+      "overall_sentiment": "positive",
+      "sentiment_confidence": 0.87,
+      "topics": ["upgrade", "pricing", "billing"],
+      "key_phrases": ["upgrade plan", "professional plan", "billing date"],
+      "qa_score": 88.0,
+      "compliance_flags": [],
+      "processing_time_ms": 1350
+    }
+  ],
+  "api_test_cases": {
+    "valid_api_keys": {
+      "customer_key": "CUS_test_customer_123",
+      "admin_key": "ADM_admin_key_456"
+    },
+    "invalid_scenarios": {
+      "malformed_key": "INVALID_KEY",
+      "suspended_key": "CUS_suspended_key",
+      "empty_key": ""
+    }
+  },
+  "notification_rules": [
+    {
+      "id": "rule_001",
+      "name": "Low QA Score Alert",
+      "metric": "qa_score",
+      "operator": "lt",
+      "threshold": 50.0,
+      "description": "Alert when QA score drops below 50"
+    },
+    {
+      "id": "rule_002", 
+      "name": "Compliance Violation",
+      "metric": "compliance_flags",
+      "operator": "contains",
+      "threshold": "pii_exposure",
+      "description": "Alert on PII exposure violations"
+    },
+    {
+      "id": "rule_003",
+      "name": "Negative Sentiment Trend",
+      "metric": "sentiment",
+      "operator": "eq",
+      "threshold": "negative",
+      "description": "Alert on negative sentiment conversations"
+    }
+  ],
+  "edge_cases": {
+    "empty_conversation": {
+      "external_id": "edge_empty",
+      "conversation_type": "call",
+      "speakers": [{"id": "s1", "role": "agent", "name": "Test"}],
+      "utterances": [],
+      "recorded_at": "2024-01-22T00:00:00Z",
+      "duration_seconds": 0.0
+    },
+    "max_utterances": {
+      "note": "Test with 5000 utterances to verify performance"
+    },
+    "unicode_content": {
+      "text": "Bonjour 你好 مرحبا 🎉 Special chars: <>&'\""
+    },
+    "boundary_values": {
+      "duration_min": 0.01,
+      "duration_max": 86400,
+      "confidence_min": 0.0,
+      "confidence_max": 1.0
+    }
+  }
+}
