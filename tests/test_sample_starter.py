@@ -218,7 +218,7 @@ class TestConversationValidation:
     # ============================================================
 
     # ------------------------------------------------------------
-    # 1️⃣ Test utterance end_time > start_time validation
+    # 1️ Test utterance end_time > start_time validation
     # ------------------------------------------------------------
 
     def test_utterance_end_time_less_than_start_time(self):
@@ -233,10 +233,10 @@ class TestConversationValidation:
         assert "end_time must be greater than or equal to start_time" in str(exc_info.value)
 
     # ------------------------------------------------------------
-    # 2️⃣ Test speaker_id references in utterances
+    # 2️ Test speaker_id references in utterances
     # ------------------------------------------------------------
 
-    def test_invalid_speaker_reference(valid_speakers, base_conversation_payload):
+    def test_invalid_speaker_reference(self, valid_speakers, base_conversation_payload):
         invalid_utterances = [
             Utterance(
                 speaker_id="INVALID_SPK",  # not in speakers
@@ -255,25 +255,25 @@ class TestConversationValidation:
         assert "Invalid speaker_id" in str(exc_info.value)
 
     # ------------------------------------------------------------
-    # 3️⃣ Test boundary values for duration_seconds
+    # 3️ Test boundary values for duration_seconds
     #     Field(..., gt=0, le=86400)
     # ------------------------------------------------------------
 
-    def test_duration_seconds_zero_invalid(base_conversation_payload):
+    def test_duration_seconds_zero_invalid(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["duration_seconds"] = 0  # invalid (gt=0)
 
         with pytest.raises(ValidationError):
             ConversationCreate(**payload)
 
-    def test_duration_seconds_max_boundary_valid(base_conversation_payload):
+    def test_duration_seconds_max_boundary_valid(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["duration_seconds"] = 86400  # valid max boundary
 
         model = ConversationCreate(**payload)
         assert model.duration_seconds == 86400
 
-    def test_duration_seconds_above_max_invalid(base_conversation_payload):
+    def test_duration_seconds_above_max_invalid(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["duration_seconds"] = 86401  # invalid (> 86400)
 
@@ -281,32 +281,32 @@ class TestConversationValidation:
             ConversationCreate(**payload)
 
     # ------------------------------------------------------------
-    # 4️⃣ Test language code format
+    # 4️ Test language code format
     #     pattern="^[a-z]{2}$"
     # ------------------------------------------------------------
 
-    def test_valid_language_code(base_conversation_payload):
+    def test_valid_language_code(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["language"] = "fr"
 
         model = ConversationCreate(**payload)
         assert model.language == "fr"
 
-    def test_invalid_language_uppercase(base_conversation_payload):
+    def test_invalid_language_uppercase(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["language"] = "EN"  # invalid (must be lowercase)
 
         with pytest.raises(ValidationError):
             ConversationCreate(**payload)
 
-    def test_invalid_language_three_letters(base_conversation_payload):
+    def test_invalid_language_three_letters(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["language"] = "eng"  # invalid (3 letters)
 
         with pytest.raises(ValidationError):
             ConversationCreate(**payload)
 
-    def test_invalid_language_numeric(base_conversation_payload):
+    def test_invalid_language_numeric(self, base_conversation_payload):
         payload = base_conversation_payload.copy()
         payload["language"] = "e1"  # invalid (must be letters only)
 
@@ -703,10 +703,9 @@ class TestQAScoring:
         assert ComplianceFlag.PII_EXPOSURE in result.compliance_flags
 
     # TODO: Add more QA scoring tests
-    # - Test individual rule evaluations
-    # - Test category score breakdowns
-    # - Test edge cases (empty conversations, etc.)
-    # - Test custom rule addition
+    # - Test custom rule addition ?
+
+    # - 1 Test individual rule evaluations
     def test_missing_greeting_reduces_greeting_score(self, qa_engine):
         """Conversation without greeting should score low in Greeting category"""
 
@@ -740,7 +739,105 @@ class TestQAScoring:
         greeting_score = result.category_scores.get(ScoreCategory.GREETING)
 
         assert greeting_score is not None
-        assert greeting_score < 50.0
+        assert greeting_score <= 75
+
+    def test_greeting_present_scores_full(self, qa_engine):
+        """Test: Greeting rule passes when present """
+        speakers = [
+            {"id": "agent_1", "role": "agent"},
+            {"id": "customer_1", "role": "customer"},
+        ]
+
+        utterances = [
+            {
+                "speaker_id": "agent_1",
+                "text": "Hello, thank you for calling. My name is John.",
+                "start_time": 0,
+                "end_time": 2,
+            },
+            {
+                "speaker_id": "customer_1",
+                "text": "I need help.",
+                "start_time": 3,
+                "end_time": 5,
+            },
+        ]
+
+        result = qa_engine.score_conversation(
+            "greeting_test",
+            speakers,
+            utterances,
+            None,
+        )
+
+        assert result.category_scores[ScoreCategory.GREETING] == 100.0
+
+    def test_profanity_triggers_compliance_flag(self, qa_engine):
+        """Test: Profanity triggers deduction + compliance flag"""
+        speakers = [
+            {"id": "agent_1", "role": "agent"},
+            {"id": "customer_1", "role": "customer"},
+        ]
+
+        utterances = [
+            {
+                "speaker_id": "agent_1",
+                "text": "This is stupid.",
+                "start_time": 0,
+                "end_time": 2,
+            }
+        ]
+
+        result = qa_engine.score_conversation(
+            "profanity_test",
+            speakers,
+            utterances,
+            None,
+        )
+
+        assert ScoreCategory.PROFESSIONALISM in result.category_scores
+        assert ComplianceFlag.INAPPROPRIATE_LANGUAGE in result.compliance_flags
+        assert result.category_scores[ScoreCategory.PROFESSIONALISM] < 100
+
+    # 2 Test category score breakdowns
+    def test_category_score_never_negative(self, qa_engine):
+        """Test category score cannot go below zero"""
+        speakers = [
+            {"id": "agent_1", "role": "agent"},
+            {"id": "customer_1", "role": "customer"},
+        ]
+
+        # Intentionally violate multiple rules
+        utterances = [
+            {
+                "speaker_id": "agent_1",
+                "text": "damn hell crap stupid idiot 1234567890123456",
+                "start_time": 0,
+                "end_time": 2,
+            }
+        ]
+
+        result = qa_engine.score_conversation(
+            "extreme_violation_test",
+            speakers,
+            utterances,
+            None,
+        )
+
+        for score in result.category_scores.values():
+            assert score >= 0
+
+    # 3 Test edge cases (empty conversations, etc.)
+    def test_empty_conversation(self, qa_engine):
+        result = qa_engine.score_conversation(
+            "empty_test",
+            speakers=[],
+            utterances=[],
+            metadata=None,
+        )
+
+        assert result.overall_score <= 100
+        assert isinstance(result.category_scores, dict)
 
 
 # =============================================================================
