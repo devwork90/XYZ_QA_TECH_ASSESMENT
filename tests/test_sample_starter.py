@@ -657,10 +657,132 @@ class TestNotificationRuleEvaluation:
 
     # TODO: Add more evaluation tests
     # - Test rule does NOT trigger when threshold not met
-    # - Test time window aggregation
-    # - Test cooldown period
-    # - Test multiple rules evaluating same data
+    def test_rule_does_not_trigger_when_threshold_not_met(self, notification_service):
+        """Rule should NOT trigger when condition is not met"""
+        rule = (
+            RuleBuilder("cust_001")
+            .with_name("Low Score Alert")
+            .when_metric("qa_score")
+            .is_less_than(60.0)
+            .within_minutes(60)
+            .minimum_occurrences(1)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
 
+        notification_service.create_rule(rule)
+
+        # Score above threshold → should NOT trigger
+        analysis = {"qa_score": 85.0}
+
+        events = notification_service.evaluate("conv_001", "cust_001", analysis)
+
+        assert events == [] or len(events) == 0
+
+    # - Test time window aggregation
+    def test_rule_triggers_only_after_minimum_occurrences_within_window(
+            self, notification_service
+    ):
+        """Rule should trigger only after required occurrences within time window"""
+        rule = (
+            RuleBuilder("cust_001")
+            .with_name("Repeated Low Score")
+            .when_metric("qa_score")
+            .is_less_than(60.0)
+            .within_minutes(60)
+            .minimum_occurrences(3)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+        notification_service.create_rule(rule)
+
+        # First occurrence
+        events1 = notification_service.evaluate(
+            "conv_001", "cust_001", {"qa_score": 50.0}
+        )
+        assert len(events1) == 0
+
+        # Second occurrence
+        events2 = notification_service.evaluate(
+            "conv_001", "cust_001", {"qa_score": 55.0}
+        )
+        assert len(events2) == 0
+
+        # Third occurrence → should trigger
+        events3 = notification_service.evaluate(
+            "conv_001", "cust_001", {"qa_score": 40.0}
+        )
+        assert len(events3) == 1
+        assert events3[0].rule_id == rule.id
+
+    # - Test cooldown period
+    def test_rule_respects_cooldown_period(self, notification_service):
+        """Rule should not trigger again during cooldown period"""
+        rule = (
+            RuleBuilder("cust_001")
+            .with_name("Cooldown Test")
+            .when_metric("qa_score")
+            .is_less_than(60.0)
+            .within_minutes(60)
+            .minimum_occurrences(1)
+            .with_cooldown_minutes(30)  # assuming this exists
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+        notification_service.create_rule(rule)
+
+        analysis = {"qa_score": 45.0}
+
+        # First trigger
+        events1 = notification_service.evaluate("conv_001", "cust_001", analysis)
+        assert len(events1) == 1
+
+        # Immediate second evaluation → should be suppressed
+        events2 = notification_service.evaluate("conv_001", "cust_001", analysis)
+        assert len(events2) == 0
+
+    # - Test multiple rules evaluating same data
+    def test_multiple_rules_can_trigger_from_same_analysis(
+            self, notification_service
+    ):
+        """Multiple rules should independently evaluate the same input"""
+        rule1 = (
+            RuleBuilder("cust_001")
+            .with_name("Low Score Alert")
+            .when_metric("qa_score")
+            .is_less_than(60.0)
+            .within_minutes(60)
+            .minimum_occurrences(1)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+        rule2 = (
+            RuleBuilder("cust_001")
+            .with_name("Very Low Score Alert")
+            .when_metric("qa_score")
+            .is_less_than(50.0)
+            .within_minutes(60)
+            .minimum_occurrences(1)
+            .notify_via([NotificationChannel.EMAIL])
+            .build()
+        )
+
+        notification_service.create_rule(rule1)
+        notification_service.create_rule(rule2)
+
+        # Score satisfies both rules
+        analysis = {"qa_score": 45.0}
+
+        events = notification_service.evaluate("conv_001", "cust_001", analysis)
+
+        triggered_rule_ids = {e.rule_id for e in events}
+
+        assert len(events) == 2
+        assert rule1.id in triggered_rule_ids
+        assert rule2.id in triggered_rule_ids
 
 # =============================================================================
 # Sample QA Scoring Tests - Expand these significantly
